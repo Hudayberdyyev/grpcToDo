@@ -7,10 +7,10 @@ import (
 	"fmt"
 
 	// mysql driver
-	v1 "github.com/Hudayberdyyev/TodoAppGrpc/pkg/service/v1"
+	v1 "github.com/Hudayberdyyev/grpcToDo/pkg/service/v1"
 	_ "github.com/go-sql-driver/mysql"
 
-	"github.com/Hudayberdyyev/TodoAppGrpc/pkg/protocol/grpc"
+	"github.com/Hudayberdyyev/grpcToDo/pkg/protocol/grpc"
 )
 
 // Config is configuration for Server
