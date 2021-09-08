@@ -2,16 +2,19 @@ package v1
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	v1 "github.com/Hudayberdyyev/grpcToDo/pkg/api/v1"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
 	apiVersion = "v1"
+	dbURL      = "postges://postgres:@%!)(^@localhost:5432/postgres?sslmode=disable"
 )
 
 type newsServiceServer struct {
@@ -34,17 +37,61 @@ func (s *newsServiceServer) checkAPI(api string) error {
 }
 
 func (s *newsServiceServer) connect(ctx context.Context) (*pgxpool.Pool, error) {
-	err := s.db.Ping(ctx)
+	db, err := pgxpool.Connect(ctx, dbURL)
 	if err != nil {
 		return nil, status.Error(codes.Unknown, "failed to connect to database-> "+err.Error())
 	}
-	return nil, nil
+	return db, nil
 }
 
 func (s *newsServiceServer) Read(ctx context.Context, req *v1.ReadRequest) (*v1.ReadResponse, error) {
+	// check if the API version requested by client is supported by server
+	if err := s.checkAPI(req.Api); err != nil {
+		return nil, err
+	}
+
+	// get SQL connection from pool
+	c, err := s.connect(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer c.Close()
+
+	// query ToDo by ID
+	rows, err := c.Query(ctx, "SELECT `ID`, `Title`, `Description`, `Created_at` FROM extra_messages WHERE `ID`=?",
+		req.Id)
+	if err != nil {
+		return nil, status.Error(codes.Unknown, "failed to select from news-> "+err.Error())
+	}
+	defer rows.Close()
+
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return nil, status.Error(codes.Unknown, "failed to retrieve data from news-> "+err.Error())
+		}
+		return nil, status.Error(codes.NotFound, fmt.Sprintf("msg with ID='%d' is not found",
+			req.Id))
+	}
+
+	// get ToDo data
+	var td v1.ExtraMsg
+	var reminder time.Time
+	if err := rows.Scan(&td.Id, &td.Title, &td.Description, &reminder); err != nil {
+		return nil, status.Error(codes.Unknown, "failed to retrieve field values from ToDo row-> "+err.Error())
+	}
+	td.CreatedAt, err = ptypes.TimestampProto(reminder)
+	if err != nil {
+		return nil, status.Error(codes.Unknown, "reminder field has invalid format-> "+err.Error())
+	}
+
+	if rows.Next() {
+		return nil, status.Error(codes.Unknown, fmt.Sprintf("found multiple news rows with ID='%d'",
+			req.Id))
+	}
+
 	return &v1.ReadResponse{
 		Api:      apiVersion,
-		ExtraMsg: &v1.ExtraMsg{Id: 1, Title: "", Description: "", CreatedAt: &timestamppb.Timestamp{Seconds: 10, Nanos: 0}},
+		ExtraMsg: &td,
 	}, nil
 }
 
