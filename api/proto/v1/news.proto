@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+option go_package = "pkg/api/v1";
+
+package v1;
+
+import "google/protobuf/timestamp.proto";
+
+message ExtraMsg {
+    int64 id = 1;
+    string title = 2;
+    string description = 3;
+    google.protobuf.Timestamp created_at = 4;
+}
+
+message ReadRequest {
+    string api = 1;
+    int64 id = 2;
+}
+
+message ReadResponse {
+    string api = 1;
+    ExtraMsg extraMsg = 2;
+}
+
+service ToDoService {
+    rpc Read(ReadRequest) returns (ReadResponse);
+}

@@ -1,0 +1,1 @@
+protoc -I api/proto/v1 --go_out=. --go-grpc_out=. news.proto
