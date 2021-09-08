@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option go_package = "pkg/api/v1";
+option go_package = "./pkg/api/v1";
 
 package v1;
 
@@ -23,6 +23,6 @@ message ReadResponse {
     ExtraMsg extraMsg = 2;
 }
 
-service ToDoService {
+service NewsService {
     rpc Read(ReadRequest) returns (ReadResponse);
 }
