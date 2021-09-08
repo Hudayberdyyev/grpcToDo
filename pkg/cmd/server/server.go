@@ -1,14 +1,14 @@
-package cmd
+package server
 
 import (
 	"context"
-	"database/sql"
 	"flag"
 	"fmt"
+	"log"
 
 	// mysql driver
 	v1 "github.com/Hudayberdyyev/grpcToDo/pkg/service/v1"
-	_ "github.com/go-sql-driver/mysql"
+	"github.com/jackc/pgx/v4/pgxpool"
 
 	"github.com/Hudayberdyyev/grpcToDo/pkg/protocol/grpc"
 )
@@ -28,6 +28,8 @@ type Config struct {
 	DatastoreDBPassword string
 	// DatastoreDBSchema is schema of database
 	DatastoreDBSchema string
+	// DatastoreDBDriver is driver of database
+	DatastoreDBDriver string
 }
 
 // RunServer runs gRPC server and HTTP gateway
@@ -37,6 +39,7 @@ func RunServer() error {
 	// get configuration
 	var cfg Config
 	flag.StringVar(&cfg.GRPCPort, "grpc-port", "", "gRPC port to bind")
+	flag.StringVar(&cfg.DatastoreDBDriver, "db-driver", "", "Database driver")
 	flag.StringVar(&cfg.DatastoreDBHost, "db-host", "", "Database host")
 	flag.StringVar(&cfg.DatastoreDBUser, "db-user", "", "Database user")
 	flag.StringVar(&cfg.DatastoreDBPassword, "db-password", "", "Database password")
@@ -49,21 +52,23 @@ func RunServer() error {
 
 	// add MySQL driver specific parameter to parse date/time
 	// Drop it for another database
-	param := "parseTime=true"
+	param := "sslmode=disable"
 
-	dsn := fmt.Sprintf("%s:%s@tcp(%s)/%s?%s",
+	dsn := fmt.Sprintf("%s://%s:%s@%s/%s?%s",
+		cfg.DatastoreDBDriver,
 		cfg.DatastoreDBUser,
 		cfg.DatastoreDBPassword,
 		cfg.DatastoreDBHost,
 		cfg.DatastoreDBSchema,
 		param)
-	db, err := sql.Open("mysql", dsn)
+	log.Printf("%s\n", dsn)
+	db, err := pgxpool.Connect(ctx, dsn)
 	if err != nil {
 		return fmt.Errorf("failed to open database: %v", err)
 	}
 	defer db.Close()
 
-	v1API := v1.NewToDoServiceServer(db)
+	v1API := v1.NewNewsServiceServer(db)
 
 	return grpc.RunServer(ctx, v1API, cfg.GRPCPort)
 }

@@ -36,29 +36,16 @@ func (s *newsServiceServer) checkAPI(api string) error {
 	return nil
 }
 
-func (s *newsServiceServer) connect(ctx context.Context) (*pgxpool.Pool, error) {
-	db, err := pgxpool.Connect(ctx, dbURL)
-	if err != nil {
-		return nil, status.Error(codes.Unknown, "failed to connect to database-> "+err.Error())
-	}
-	return db, nil
-}
-
 func (s *newsServiceServer) Read(ctx context.Context, req *v1.ReadRequest) (*v1.ReadResponse, error) {
 	// check if the API version requested by client is supported by server
 	if err := s.checkAPI(req.Api); err != nil {
 		return nil, err
 	}
-
+	c := s.db
 	// get SQL connection from pool
-	c, err := s.connect(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer c.Close()
 
 	// query ToDo by ID
-	rows, err := c.Query(ctx, "SELECT `ID`, `Title`, `Description`, `Created_at` FROM extra_messages WHERE `ID`=?",
+	rows, err := c.Query(ctx, "select id, title, description, created_at from extra_messages where id = $1",
 		req.Id)
 	if err != nil {
 		return nil, status.Error(codes.Unknown, "failed to select from news-> "+err.Error())
